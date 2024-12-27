@@ -26,7 +26,6 @@ from carvekit.ml.files.models_loc import download_all
 # Download CarveKit models
 download_all()
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,7 +41,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize CarveKit models
+# Create a global lock for GPU operations
+gpu_lock = asyncio.Lock()
+
+# Dictionary to store loaded models
+loaded_models = {}
 
 
 def initialize_carvekit_model(seg_pipe_class, device='cuda' if torch.cuda.is_available() else 'cpu'):
@@ -61,47 +64,63 @@ def initialize_carvekit_model(seg_pipe_class, device='cuda' if torch.cuda.is_ava
     return model
 
 
-# Pre-load all models
-logger.info("Initializing all models...")
-
-# Initialize CarveKit models
-carvekit_models = {
-    'u2net': initialize_carvekit_model(U2NET),
-    'tracer': initialize_carvekit_model(TracerUniversalB7),
-    'basnet': initialize_carvekit_model(BASNET),
-    'deeplab': initialize_carvekit_model(DeepLabV3)
-}
-
-# Initialize BRIA model
-logger.info("Initializing BRIA model...")
-bria_model = pipeline("image-segmentation", model="briaai/RMBG-1.4",
-                      trust_remote_code=True, device="cpu")
-
-# Initialize InSPyReNet model
-logger.info("Initializing InSPyReNet model...")
-inspyrenet_model = Remover()
-inspyrenet_model.model.cpu()
-
-# Initialize rembg models
-logger.info("Initializing rembg models...")
-rembg_models = {
-    'u2net': new_session('u2net'),
-    'u2net_human_seg': new_session('u2net_human_seg'),
-    'isnet-general-use': new_session('isnet-general-use'),
-    'isnet-anime': new_session('isnet-anime')
-}
-
-# Create a global lock for GPU operations
-gpu_lock = asyncio.Lock()
+async def load_carvekit_model(model_name):
+    model_key = f"carvekit-{model_name}"
+    if model_key not in loaded_models:
+        logger.info(f"Initializing CarveKit model: {model_name}")
+        if model_name == 'u2net':
+            loaded_models[model_key] = initialize_carvekit_model(U2NET)
+        elif model_name == 'tracer':
+            loaded_models[model_key] = initialize_carvekit_model(
+                TracerUniversalB7)
+        elif model_name == 'basnet':
+            loaded_models[model_key] = initialize_carvekit_model(BASNET)
+        elif model_name == 'deeplab':
+            loaded_models[model_key] = initialize_carvekit_model(DeepLabV3)
+    return loaded_models[model_key]
 
 
-def process_with_carvekit(image, model_name):
-    model = carvekit_models[model_name.replace('carvekit-', '')]
+async def load_bria_model():
+    if 'bria' not in loaded_models:
+        logger.info("Initializing BRIA model")
+        loaded_models['bria'] = pipeline("image-segmentation", model="briaai/RMBG-1.4",
+                                         trust_remote_code=True, device="cpu")
+    return loaded_models['bria']
+
+
+async def load_inspyrenet_model():
+    if 'inspyrenet' not in loaded_models:
+        logger.info("Initializing InSPyReNet model")
+        model = Remover()
+        if not torch.cuda.is_available():
+            model.model.cpu()
+        loaded_models['inspyrenet'] = model
+    return loaded_models['inspyrenet']
+
+
+async def load_rembg_model(model_name):
+    model_key = f"rembg-{model_name}"
+    if model_key not in loaded_models:
+        logger.info(f"Initializing rembg model: {model_name}")
+        if model_name == 'u2net':
+            loaded_models[model_key] = new_session('u2net')
+        elif model_name == 'u2net_human_seg':
+            loaded_models[model_key] = new_session('u2net_human_seg')
+        elif model_name == 'isnet':
+            loaded_models[model_key] = new_session('isnet-general-use')
+        elif model_name == 'isnet_anime':
+            loaded_models[model_key] = new_session('isnet-anime')
+    return loaded_models[model_key]
+
+
+async def process_with_carvekit(image, model_name):
+    model = await load_carvekit_model(model_name.replace('carvekit-', ''))
     return model([image])[0]
 
 
-def process_with_bria(image):
-    result = bria_model(image, return_mask=True)
+async def process_with_bria(image):
+    model = await load_bria_model()
+    result = model(image, return_mask=True)
     mask = result
     if not isinstance(mask, Image.Image):
         mask = Image.fromarray((mask * 255).astype('uint8'))
@@ -110,15 +129,17 @@ def process_with_bria(image):
     return no_bg_image
 
 
-def process_with_inspyrenet(image):
-    return inspyrenet_model.process(image, type='rgba')
+async def process_with_inspyrenet(image):
+    model = await load_inspyrenet_model()
+    return model.process(image, type='rgba')
 
 
-def process_with_rembg(image, model_name):
-    model = model_name.replace('rembg-', '')
-    if model == 'isnet':
-        model = 'isnet-general-use'
-    return rembg_remove(image, session=rembg_models[model])
+async def process_with_rembg(image, model_name):
+    model_name = model_name.replace('rembg-', '')
+    if model_name == 'isnet':
+        model_name = 'isnet-general-use'
+    model = await load_rembg_model(model_name)
+    return rembg_remove(image, session=model)
 
 
 @app.post("/api/remove-bg")
@@ -143,23 +164,20 @@ async def remove_background(
         if algorithm.startswith('carvekit-'):
             async with gpu_lock:
                 try:
-                    model = carvekit_models[algorithm.replace('carvekit-', '')]
-                    model.segmentation_pipeline.to('cuda')
-                    output_image = await asyncio.to_thread(model, [input_image])
-                    output_image = output_image[0]
+                    output_image = await process_with_carvekit(input_image, algorithm)
                 finally:
-                    model.segmentation_pipeline.to('cpu')
+                    if 'carvekit-' in algorithm:
+                        model_name = algorithm.replace('carvekit-', '')
+                        if f'carvekit-{model_name}' in loaded_models:
+                            loaded_models[f'carvekit-{model_name}'].segmentation_pipeline.to(
+                                'cpu')
         elif algorithm == 'bria':
-            output_image = await asyncio.to_thread(process_with_bria, input_image)
+            output_image = await process_with_bria(input_image)
         elif algorithm == 'inspyrenet':
             async with gpu_lock:
-                try:
-                    inspyrenet_model.model.to('cuda')
-                    output_image = await asyncio.to_thread(inspyrenet_model.process, input_image, type='rgba')
-                finally:
-                    inspyrenet_model.model.to('cpu')
+                output_image = await process_with_inspyrenet(input_image)
         elif algorithm.startswith('rembg-'):
-            output_image = await asyncio.to_thread(process_with_rembg, input_image, algorithm)
+            output_image = await process_with_rembg(input_image, algorithm)
         else:
             raise HTTPException(status_code=400, detail="Invalid algorithm")
 

@@ -1,50 +1,55 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 interface ImageComparisonProps {
   originalImageUrl: string;
   processedImageUrl: string | null;
-  maxWidth?: string; // Optional prop to control the maximum width
 }
 
 export function ImageComparison({
   originalImageUrl,
   processedImageUrl,
-  maxWidth = "30%", // Default max width to 100% of its parent
 }: ImageComparisonProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(true); // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [calculatedMaxWidth, setCalculatedMaxWidth] = useState<string>("75%");
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSliderPosition(Number(e.target.value));
+  const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSliderPosition(Number(event.target.value));
   };
 
   useEffect(() => {
-    const loadImageAspectRatio = async () => {
-      setIsLoading(true);
+    const loadImageAspectRatio = () => {
       const img = new Image();
       img.src = originalImageUrl;
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-      });
-      if (img.naturalWidth && img.naturalHeight) {
-        setAspectRatio(img.naturalWidth / img.naturalHeight);
-      }
-      setIsLoading(false);
+      img.onload = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          setAspectRatio(img.naturalWidth / img.naturalHeight);
+        }
+        setIsLoading(false);
+      };
     };
 
     loadImageAspectRatio();
   }, [originalImageUrl]);
+
+  useEffect(() => {
+    if (aspectRatio !== null) {
+      if (aspectRatio > 1) {
+        setCalculatedMaxWidth("75%");
+      } else {
+        setCalculatedMaxWidth("30%");
+      }
+    }
+  }, [aspectRatio]);
 
   return (
     <div
       className="relative w-full"
       style={{
         aspectRatio: aspectRatio ? aspectRatio : undefined,
-        maxWidth: maxWidth, // Apply the max width
-        // Optionally add a minimum height while loading to prevent collapse
+        maxWidth: calculatedMaxWidth,
         minHeight: isLoading ? "100px" : undefined,
       }}
       ref={containerRef}

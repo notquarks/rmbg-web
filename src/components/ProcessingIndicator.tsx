@@ -6,17 +6,27 @@ interface ProcessingIndicatorProps {
 }
 
 export function ProcessingIndicator({ isLoading }: ProcessingIndicatorProps) {
-  if (!isLoading) return null;
-
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex items-center justify-center mt-4"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: isLoading ? 1 : 0, y: isLoading ? 0 : -20 }}
+      transition={{ duration: 0.3 }}
+      className="flex flex-col items-center justify-center mt-4"
     >
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      <span>Processing image...</span>
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      >
+        <Loader2 className="h-8 w-8 text-primary" />
+      </motion.div>
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="mt-2 text-sm text-muted-foreground"
+      >
+        Processing image...
+      </motion.span>
     </motion.div>
   );
 }

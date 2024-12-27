@@ -9,6 +9,10 @@ self.onmessage = async (e) => {
     self.postMessage({
       type: "ready",
     });
+    // Inform main thread to reset algorithm
+    self.postMessage({
+      type: "reset_algorithm",
+    });
   } else if (type === "segment") {
     try {
       // Indicate processing start
@@ -20,7 +24,7 @@ self.onmessage = async (e) => {
       // Extract parameters from data
       const {
         imageUrl,
-        algorithm = "carvekit-tracer",
+        algorithm = "inspyrenet",
         isTransparent = true,
         backgroundColor = "#ffffff",
       } = typeof data === "string" ? { imageUrl: data } : data;

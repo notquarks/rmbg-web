@@ -25,7 +25,7 @@ function App() {
   );
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [algorithm, setAlgorithm] = useState("carvekit-tracer");
+  const [algorithm, setAlgorithm] = useState("inspyrenet");
   const [isTransparent, setIsTransparent] = useState(true);
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
   const { toast } = useToast();
@@ -42,6 +42,8 @@ function App() {
         const { type, data } = e.data;
         if (type === "ready") {
           setIsLoading(false);
+        } else if (type === "reset_algorithm") {
+          setAlgorithm("inspyrenet");
         } else if (type === "decode_result") {
           setProcessedImageUrl(data.mask);
           setIsLoading(false);
@@ -210,13 +212,16 @@ function App() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     >
-                      <div
-                        style={{ display: "flex", justifyContent: "center" }}
-                      >
+                      <div className="relative flex items-center justify-center">
                         <ImageComparison
                           originalImageUrl={originalImageUrl}
                           processedImageUrl={processedImageUrl}
                         />
+                        {isLoading && (
+                          <div className="absolute w-full h-full flex items-center justify-center backdrop-blur-lg backdrop-brightness-50 backdrop-opacity-85">
+                            <ProcessingIndicator isLoading={isLoading} />
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col mt-4 space-y-4 justify-center items-center">
                         <div className="flex items-center space-x-4">
@@ -228,8 +233,11 @@ function App() {
                               <SelectValue placeholder="Select algorithm" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="inspyrenet">
+                                InSPyReNet (Default)
+                              </SelectItem>
                               <SelectItem value="carvekit-tracer">
-                                Tracer B7 (Default)
+                                Tracer B7
                               </SelectItem>
                               <SelectItem value="carvekit-u2net">
                                 U2NET
@@ -241,9 +249,6 @@ function App() {
                                 DeepLabV3
                               </SelectItem>
                               <SelectItem value="bria">BRIA</SelectItem>
-                              <SelectItem value="inspyrenet">
-                                InSPyReNet
-                              </SelectItem>
                               <SelectItem value="rembg-u2net">
                                 Rembg U2NET
                               </SelectItem>
@@ -312,21 +317,6 @@ function App() {
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <ProcessingIndicator isLoading={isLoading} />
-                {/* {processedImageUrl && (
-                  <motion.div
-                    key="processed"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="mt-4"
-                  >
-                    <ImageDisplay
-                      imageUrl={processedImageUrl}
-                      title="Processed Image"
-                    />
-                  </motion.div>
-                )} */}
               </div>
             </div>
           </div>
