@@ -104,12 +104,24 @@ async def load_rembg_model(model_name):
         logger.info(f"Initializing rembg model: {model_name}")
         if model_name == 'u2net':
             loaded_models[model_key] = new_session('u2net')
-        elif model_name == 'u2net_human_seg':
-            loaded_models[model_key] = new_session('u2net_human_seg')
+        elif model_name == 'u2netp':
+            loaded_models[model_key] = new_session('u2netp')
+        elif model_name == 'u2net-human-seg':
+            loaded_models[model_key] = new_session('u2net-human-seg')
         elif model_name == 'isnet':
             loaded_models[model_key] = new_session('isnet-general-use')
-        elif model_name == 'isnet_anime':
+        elif model_name == 'isnet-anime':
             loaded_models[model_key] = new_session('isnet-anime')
+        elif model_name == 'birefnet-general':
+            loaded_models[model_key] = new_session('birefnet-general')
+        elif model_name == 'birefnet-general-lite':
+            loaded_models[model_key] = new_session('birefnet-general-lite')
+        elif model_name == 'birefnet-portrait':
+            loaded_models[model_key] = new_session('birefnet-portrait')
+        elif model_name == 'birefnet-dis':
+            loaded_models[model_key] = new_session('birefnet-dis')
+        elif model_name == 'birefnet-hrsod':
+            loaded_models[model_key] = new_session('birefnet-hrsod')
     return loaded_models[model_key]
 
 
@@ -230,7 +242,7 @@ async def health_check():
             "bria",
             "inspyrenet",
             "rembg-u2net",
-            "rembg-u2net-human",
+            "rembg-u2net-human-seg",
             "rembg-isnet",
             "rembg-isnet-anime"
         ]

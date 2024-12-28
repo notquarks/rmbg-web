@@ -252,7 +252,10 @@ function App() {
                               <SelectItem value="rembg-u2net">
                                 Rembg U2NET
                               </SelectItem>
-                              <SelectItem value="rembg-u2net-human">
+                              <SelectItem value="rembg-u2netp">
+                                Rembg U2NETP
+                              </SelectItem>
+                              <SelectItem value="rembg-u2net-human-seg">
                                 Rembg U2NET Human
                               </SelectItem>
                               <SelectItem value="rembg-isnet">
@@ -260,6 +263,21 @@ function App() {
                               </SelectItem>
                               <SelectItem value="rembg-isnet-anime">
                                 Rembg ISNET Anime
+                              </SelectItem>
+                              <SelectItem value="rembg-birefnet-general">
+                                Rembg BiRefNet
+                              </SelectItem>
+                              <SelectItem value="rembg-birefnet-general-lite">
+                                Rembg BiRefNet Lite
+                              </SelectItem>
+                              <SelectItem value="rembg-birefnet-portrait">
+                                Rembg BiRefNet Potrait
+                              </SelectItem>
+                              <SelectItem value="rembg-birefnet-dis">
+                                Rembg BiRefNet DIS
+                              </SelectItem>
+                              <SelectItem value="rembg-birefnet-hrsod">
+                                Rembg BiRefNet HRSOD
                               </SelectItem>
                             </SelectContent>
                           </Select>
